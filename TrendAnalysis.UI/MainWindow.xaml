@@ -4,9 +4,22 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TrendAnalysis.UI"
-        mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        xmlns:System="clr-namespace:System;assembly=mscorlib" mc:Ignorable="d"
+        Title="Trend Analysis App" Height="600" Width="800">
     <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
 
+        <StackPanel Orientation="Horizontal" Grid.Row="0" Margin="10">
+            <TextBlock Text="Start Date:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+            <DatePicker x:Name="StartDatePicker" SelectedDate="{x:Static Member=System:DateTime.Now}" Width="100" Margin="0,0,10,0"/>
+            <TextBlock Text="End Date:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+            <DatePicker x:Name="EndDatePicker" SelectedDate="{x:Static Member=System:DateTime.Now}" Width="100" Margin="0,0,10,0"/>
+            <Button Content="Load Data" Click="LoadData_Click" Width="100"/>
+        </StackPanel>
+
+        <ListBox x:Name="TrendDataListBox" Grid.Row="1" Margin="10"/>
     </Grid>
 </Window>
