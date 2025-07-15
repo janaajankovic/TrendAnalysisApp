@@ -4,22 +4,149 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TrendAnalysis.UI"
-        xmlns:System="clr-namespace:System;assembly=mscorlib" mc:Ignorable="d"
-        Title="Trend Analysis App" Height="600" Width="800">
+        xmlns:System="clr-namespace:System;assembly=mscorlib"
+        xmlns:converters="clr-namespace:TrendAnalysis.UI.Converters"
+        xmlns:viewModel="clr-namespace:TrendAnalysis.ViewModel;assembly=TrendAnalysis.ViewModel"
+        mc:Ignorable="d"
+        Title="Trend Analysis App" Height="600" Width="900" MinHeight="400" MinWidth="600">
+
+    <Window.DataContext>
+        <viewModel:MainViewModel/>
+    </Window.DataContext>
+
+    <Window.Resources>
+        <Style x:Key="ModernButton" TargetType="Button">
+            <Setter Property="Background" Value="#007ACC"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="3" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#005A8D"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#003D66"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+
+        <Style TargetType="ComboBox">
+            <Setter Property="Padding" Value="5"/>
+            <Setter Property="BorderBrush" Value="#CCCCCC"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Control.Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Border BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                                    Background="{TemplateBinding Background}"
+                                    CornerRadius="3" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter IsHitTestVisible="False" Content="{TemplateBinding SelectionBoxItem}"
+                                                  ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                  ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                            </Border>
+                            <ToggleButton Grid.Column="1" Style="{StaticResource ComboBoxToggleButtonStyle}"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"/>
+                            <Popup x:Name="PART_Popup" AllowsTransparency="True" IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   Placement="Bottom" 
+                                   Margin="1" MinWidth="{TemplateBinding ActualWidth}" MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                <Border x:Name="DropDownBorder" Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}"
+                                        BorderThickness="1" BorderBrush="{DynamicResource {x:Static SystemColors.WindowFrameBrushKey}}">
+                                    <ScrollViewer Style="{StaticResource ComboBoxScrollViewer}" MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="ComboBoxToggleButtonStyle" TargetType="ToggleButton">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border Background="Transparent">
+                            <Path HorizontalAlignment="Center" VerticalAlignment="Center" Data="M0,0 L4,4 L8,0 Z" Fill="Black"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="ComboBoxScrollViewer" TargetType="ScrollViewer">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollViewer">
+                        <Grid>
+                            <ScrollContentPresenter CanContentScroll="{TemplateBinding CanContentScroll}"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="Padding" Value="5"/>
+        </Style>
+
+    </Window.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <StackPanel Orientation="Horizontal" Grid.Row="0" Margin="10">
-            <TextBlock Text="Start Date:" VerticalAlignment="Center" Margin="0,0,5,0"/>
-            <DatePicker x:Name="StartDatePicker" SelectedDate="{x:Static Member=System:DateTime.Now}" Width="100" Margin="0,0,10,0"/>
-            <TextBlock Text="End Date:" VerticalAlignment="Center" Margin="0,0,5,0"/>
-            <DatePicker x:Name="EndDatePicker" SelectedDate="{x:Static Member=System:DateTime.Now}" Width="100" Margin="0,0,10,0"/>
-            <Button Content="Load Data" Click="LoadData_Click" Width="100"/>
+        <StackPanel Orientation="Horizontal" Grid.Row="0" Margin="10" HorizontalAlignment="Center">
+            <TextBlock Text="Start Date:" VerticalAlignment="Center" Margin="0,0,5,0" FontWeight="SemiBold"/>
+            <DatePicker Width="120" Margin="0,0,15,0"
+                        SelectedDate="{Binding StartDate, Mode=TwoWay}"/>
+
+            <TextBlock Text="End Date:" VerticalAlignment="Center" Margin="0,0,5,0" FontWeight="SemiBold"/>
+            <DatePicker Width="120" Margin="0,0,15,0"
+                        SelectedDate="{Binding EndDate, Mode=TwoWay}"/>
+
+            <Button Content="Load Data" Width="120" Style="{StaticResource ModernButton}" Cursor="Hand"
+                    Command="{Binding LoadDataCommand}"/>
+
+            <TextBlock Text="Render Mode:" VerticalAlignment="Center" Margin="20,0,5,0" FontWeight="SemiBold"/>
+            <ComboBox Width="150" SelectedItem="{Binding SelectedRenderMode, Mode=TwoWay}"
+                      ItemsSource="{Binding RenderModes}" Margin="0,0,10,0"/>
+
         </StackPanel>
 
-        <ListBox x:Name="TrendDataListBox" Grid.Row="1" Margin="10"/>
+        <Border Grid.Row="1" Margin="10,0,10,10" Background="#F0F0F0" BorderBrush="#CCCCCC" BorderThickness="1" CornerRadius="5">
+            <Canvas x:Name="DrawingCanvas" Background="Transparent"/>
+        </Border>
+
+        <Grid Grid.Row="2" Margin="10,5">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="{Binding StatusMessage}" Grid.Column="0" VerticalAlignment="Center" Margin="5,0" FontWeight="SemiBold"/>
+            <ProgressBar Grid.Column="1" IsIndeterminate="True" Height="10" Width="150"
+                         Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+        </Grid>
     </Grid>
 </Window>

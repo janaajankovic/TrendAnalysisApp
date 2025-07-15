@@ -17,4 +17,8 @@
     <PackageReference Include="System.ServiceModel.Security" Version="6.0.*" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\TrendAnalysis.ViewModel\TrendAnalysis.ViewModel.csproj" />
+  </ItemGroup>
+
 </Project>

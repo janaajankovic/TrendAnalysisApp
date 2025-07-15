@@ -36,7 +36,7 @@ namespace TrendAnalysis.Service
                     {
                         while (reader.Read())
                         {
-                            data.Add(new TrendDataPoint // OVDJE KORISTIMO NOVU KLASU
+                            data.Add(new TrendDataPoint 
                             {
                                 Timestamp = reader.GetDateTime(reader.GetOrdinal("Timestamp")),
                                 Value = reader.GetDouble(reader.GetOrdinal("Value"))

@@ -1,13 +1,15 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.12.35514.174 d17.12
+VisualStudioVersion = 17.12.35514.174
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TrendAnalysis.Service", "TrendAnalysis.Service\TrendAnalysis.Service.csproj", "{60AB2395-DB19-4A92-85C5-6C9B67E40256}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TrendAnalysis.UI", "TrendAnalysis.UI\TrendAnalysis.UI.csproj", "{2D382AD6-F283-40F3-AEB1-7FDA224CDF05}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TrendDataGenerator", "TrendDataGenerator\TrendDataGenerator.csproj", "{9F73D0EC-8C6D-4F12-976D-5A37509AE7A3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TrendAnalysis.ViewModel", "TrendAnalysis.ViewModel\TrendAnalysis.ViewModel.csproj", "{006BCC46-06A5-49CA-9FFC-634FA4B81F20}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -27,6 +29,10 @@ Global
 		{9F73D0EC-8C6D-4F12-976D-5A37509AE7A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9F73D0EC-8C6D-4F12-976D-5A37509AE7A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9F73D0EC-8C6D-4F12-976D-5A37509AE7A3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{006BCC46-06A5-49CA-9FFC-634FA4B81F20}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{006BCC46-06A5-49CA-9FFC-634FA4B81F20}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{006BCC46-06A5-49CA-9FFC-634FA4B81F20}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{006BCC46-06A5-49CA-9FFC-634FA4B81F20}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
