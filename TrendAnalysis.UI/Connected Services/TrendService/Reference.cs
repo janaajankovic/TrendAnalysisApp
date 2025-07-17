@@ -14,7 +14,7 @@ namespace TrendService
     
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.Tools.ServiceModel.Svcutil", "2.2.0-preview1.23462.5")]
-    [System.Runtime.Serialization.DataContractAttribute(Name="TrendDataPoint", Namespace="http://schemas.datacontract.org/2004/07/TrendAnalysis.Service")]
+    [System.Runtime.Serialization.DataContractAttribute(Name="TrendDataPoint", Namespace="http://schemas.datacontract.org/2004/07/TrendAnalysis.ContractFramework")]
     public partial class TrendDataPoint : object
     {
         
@@ -55,7 +55,10 @@ namespace TrendService
     {
         
         [System.ServiceModel.OperationContractAttribute(Action="http://tempuri.org/ITrendDataService/GetTrendData", ReplyAction="http://tempuri.org/ITrendDataService/GetTrendDataResponse")]
-        System.Threading.Tasks.Task<System.Collections.Generic.List<TrendService.TrendDataPoint>> GetTrendDataAsync(System.DateTime startTime, System.DateTime endTime);
+        System.Threading.Tasks.Task<TrendService.TrendDataPoint[]> GetTrendDataAsync(System.DateTime startTime, System.DateTime endTime);
+        
+        [System.ServiceModel.OperationContractAttribute(Action="http://tempuri.org/ITrendDataService/GetData", ReplyAction="http://tempuri.org/ITrendDataService/GetDataResponse")]
+        System.Threading.Tasks.Task<string> GetDataAsync(int value);
     }
     
     [System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.Tools.ServiceModel.Svcutil", "2.2.0-preview1.23462.5")]
@@ -108,9 +111,14 @@ namespace TrendService
         {
         }
         
-        public System.Threading.Tasks.Task<System.Collections.Generic.List<TrendService.TrendDataPoint>> GetTrendDataAsync(System.DateTime startTime, System.DateTime endTime)
+        public System.Threading.Tasks.Task<TrendService.TrendDataPoint[]> GetTrendDataAsync(System.DateTime startTime, System.DateTime endTime)
         {
             return base.Channel.GetTrendDataAsync(startTime, endTime);
+        }
+        
+        public System.Threading.Tasks.Task<string> GetDataAsync(int value)
+        {
+            return base.Channel.GetDataAsync(value);
         }
         
         public virtual System.Threading.Tasks.Task OpenAsync()

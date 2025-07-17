@@ -1,192 +1,342 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using System.Collections.ObjectModel; 
+using TrendAnalysis.ViewModel;     
 using System.Diagnostics;
-using System.Linq;
-using TrendAnalysis.ViewModel;
-using System.Collections.ObjectModel;
-using TrendAnalysis.Service; // Zadrži ovo ako se TrendDataPoint nalazi ovdje
 
 namespace TrendAnalysis.UI
 {
     public partial class MainWindow : Window
     {
-        private MainViewModel _viewModel;
-
         public MainWindow()
         {
             InitializeComponent();
-
-            _viewModel = new MainViewModel();
-            this.DataContext = _viewModel;
-
-            _viewModel.DataLoadedAndReadyForRender += RenderChart;
-
+            this.Loaded += MainWindow_Loaded;
             DrawingCanvas.SizeChanged += DrawingCanvas_SizeChanged;
         }
 
-        private void DrawingCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            if (_viewModel.CurrentTrendData != null && _viewModel.CurrentTrendData.Any())
+            if (this.DataContext is MainViewModel viewModel)
             {
-                RenderChart(_viewModel.CurrentTrendData);
+                viewModel.DataReadyForChartRender -= ViewModel_DataReadyForChartRender;
+                viewModel.DataReadyForChartRender += ViewModel_DataReadyForChartRender;
+
+                viewModel.PropertyChanged -= ViewModel_PropertyChanged; 
+                viewModel.PropertyChanged += ViewModel_PropertyChanged;
+
+                if (viewModel.SelectedRenderingMethod == "Softverski (Canvas)" &&
+                   viewModel.CurrentTrendData != null && viewModel.CurrentTrendData.Any())
+                {
+                    RenderChart();
+                }
             }
         }
 
-        private void RenderChart(ObservableCollection<TrendDataPoint> trendData)
+        private void ViewModel_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
-            DrawingCanvas.Children.Clear();
-            Stopwatch stopwatch = new Stopwatch();
-            stopwatch.Start();
+            if (this.DataContext is MainViewModel viewModel)
+            {
+                if (e.PropertyName == nameof(MainViewModel.SelectedRenderingMethod) ||
+                    e.PropertyName == nameof(MainViewModel.SelectedRenderMode) ||
+                    e.PropertyName == nameof(MainViewModel.CurrentTrendData))
+                {
+                    DrawingCanvas.Children.Clear();
+                }
+            }
+        }
 
-            int pointsToRender = trendData.Count;
+        private void ViewModel_DataReadyForChartRender()
+        {
+            if (this.DataContext is MainViewModel viewModel)
+            {
+                if (viewModel.CurrentTrendData != null && viewModel.CurrentTrendData.Any())
+                {
+                    RenderChart();
+                }
+                else
+                {
+                    DrawingCanvas.Children.Clear();
+                }
+            }
+        }
+
+
+        private void DrawingCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            if (this.DataContext is MainViewModel viewModel)
+            {
+                if (viewModel.SelectedRenderingMethod == "Softverski (Canvas)" &&
+                    viewModel.CurrentTrendData != null && viewModel.CurrentTrendData.Any())
+                {
+                    RenderChart();
+                }
+            }
+
+        }
+
+        private void RenderChart()
+        {
+            if (!(this.DataContext is MainViewModel viewModel)) return;
+
+            ObservableCollection<TrendAnalysis.Contracts.TrendDataPoint> rawTrendData = viewModel.CurrentTrendData;
+            string renderMode = viewModel.SelectedRenderMode;
+
+            Debug.WriteLine($"RenderChart called. Raw Data points: {rawTrendData?.Count ?? 0}. Render Mode: {renderMode}");
+
+
+            if (rawTrendData == null || !rawTrendData.Any())
+            {
+                DrawingCanvas.Children.Clear();
+                return;
+            }
+
+            List<TrendAnalysis.Contracts.TrendDataPoint> aggregatedData = new List<TrendAnalysis.Contracts.TrendDataPoint>();
+
+            if (rawTrendData != null && rawTrendData.Any())
+            {
+                aggregatedData = rawTrendData
+                    .GroupBy(dp => new DateTime(dp.Timestamp.Year, dp.Timestamp.Month, dp.Timestamp.Day, dp.Timestamp.Hour, 0, 0)) 
+                    .Select(g => new TrendAnalysis.Contracts.TrendDataPoint
+                    {
+                        Timestamp = g.Key,
+                        Value = g.Average(dp => dp.Value) 
+                    })
+                    .OrderBy(dp => dp.Timestamp) 
+                    .ToList();
+
+                Debug.WriteLine($"Aggregated data points: {aggregatedData.Count}");
+            }
+            else
+            {
+                DrawingCanvas.Children.Clear();
+                return;
+            }
+
+            var trendData = aggregatedData;
+
+
+            DrawingCanvas.Children.Clear();
 
             double canvasWidth = DrawingCanvas.ActualWidth;
             double canvasHeight = DrawingCanvas.ActualHeight;
 
             if (canvasWidth == 0 || canvasHeight == 0)
             {
+                Debug.WriteLine("Canvas has no size. Aborting render.");
                 return;
             }
 
-            double margin = 60;
+            double margin = 40;
             double plotAreaWidth = canvasWidth - 2 * margin;
             double plotAreaHeight = canvasHeight - 2 * margin;
 
             if (plotAreaWidth <= 0 || plotAreaHeight <= 0)
             {
+                Debug.WriteLine("Plot area too small. Aborting render.");
                 return;
             }
 
-            if (!trendData.Any())
+            double minX = trendData.Min(p => p.Timestamp.ToOADate());
+            double maxX = trendData.Max(p => p.Timestamp.ToOADate());
+            double minY = trendData.Min(p => p.Value);
+            double maxY = trendData.Max(p => p.Value);
+
+            double yAxisPadding = (maxY - minY) * 0.1;
+            minY -= yAxisPadding;
+            maxY += yAxisPadding;
+
+            if (Math.Abs(maxX - minX) < 1e-6) maxX = minX + 1;
+            if (Math.Abs(maxY - minY) < 1e-6) maxY = minY + 1;
+
+
+            Line xAxis = new Line
             {
-                return;
-            }
-
-            DateTime minTimestamp = trendData.Min(p => p.Timestamp);
-            DateTime maxTimestamp = trendData.Max(p => p.Timestamp);
-            double minValue = trendData.Min(p => p.Value);
-            double maxValue = trendData.Max(p => p.Value);
-
-            if (Math.Abs(maxValue - minValue) < Double.Epsilon) maxValue += 1;
-            if (maxTimestamp == minTimestamp) maxTimestamp = minTimestamp.AddSeconds(1);
-
-            double scaleX = plotAreaWidth / (maxTimestamp - minTimestamp).TotalSeconds;
-            double scaleY = plotAreaHeight / (maxValue - minValue);
-
-            Pen gridPen = new Pen(new SolidColorBrush(Color.FromArgb(50, 100, 100, 100)), 0.5);
-
-            int numHorizontalLines = 5;
-            for (int i = 0; i <= numHorizontalLines; i++)
-            {
-                double yGrid = margin + (plotAreaHeight / numHorizontalLines) * i;
-                Line gridLine = new Line { X1 = margin, Y1 = yGrid, X2 = canvasWidth - margin, Y2 = yGrid, Stroke = gridPen.Brush, StrokeThickness = gridPen.Thickness };
-                DrawingCanvas.Children.Add(gridLine);
-            }
-
-            int numVerticalLines = 6;
-            for (int i = 0; i <= numVerticalLines; i++)
-            {
-                double xGrid = margin + (plotAreaWidth / numVerticalLines) * i;
-                Line gridLine = new Line { X1 = xGrid, Y1 = margin, X2 = xGrid, Y2 = canvasHeight - margin, Stroke = gridPen.Brush, StrokeThickness = gridPen.Thickness };
-                DrawingCanvas.Children.Add(gridLine);
-            }
-
-            Pen axisPen = new Pen(Brushes.DarkGray, 1.5);
-
-            Line xAxis = new Line { X1 = margin, Y1 = canvasHeight - margin, X2 = canvasWidth - margin, Y2 = canvasHeight - margin, Stroke = axisPen.Brush, StrokeThickness = axisPen.Thickness };
-            Line yAxis = new Line { X1 = margin, Y1 = margin, X2 = margin, Y2 = canvasHeight - margin, Stroke = axisPen.Brush, StrokeThickness = axisPen.Thickness };
+                X1 = margin,
+                Y1 = canvasHeight - margin,
+                X2 = canvasWidth - margin,
+                Y2 = canvasHeight - margin,
+                Stroke = Brushes.Black,
+                StrokeThickness = 2
+            };
             DrawingCanvas.Children.Add(xAxis);
+
+            Line yAxis = new Line
+            {
+                X1 = margin,
+                Y1 = margin,
+                X2 = margin,
+                Y2 = canvasHeight - margin,
+                Stroke = Brushes.Black,
+                StrokeThickness = 2
+            };
             DrawingCanvas.Children.Add(yAxis);
 
-            Polyline trendLine = new Polyline();
-            trendLine.Stroke = Brushes.DodgerBlue;
-            trendLine.StrokeThickness = 2;
-
-            foreach (var point in trendData.Take(pointsToRender))
+            int numberOfYLabels = 5;
+            for (int i = 0; i <= numberOfYLabels; i++)
             {
-                double x = margin + (point.Timestamp - minTimestamp).TotalSeconds * scaleX;
-                double y = canvasHeight - margin - ((point.Value - minValue) * scaleY);
+                double yValue = minY + (maxY - minY) * i / numberOfYLabels;
+                double yPos = canvasHeight - margin - (yValue - minY) / (maxY - minY) * plotAreaHeight;
 
-                trendLine.Points.Add(new Point(x, y));
+                Line tick = new Line
+                {
+                    X1 = margin - 5,
+                    Y1 = yPos,
+                    X2 = margin,
+                    Y2 = yPos,
+                    Stroke = Brushes.Gray,
+                    StrokeThickness = 0.5
+                };
+                DrawingCanvas.Children.Add(tick);
+
+                TextBlock label = new TextBlock
+                {
+                    Text = yValue.ToString("F1"),
+                    FontSize = 9,
+                    Foreground = Brushes.Black
+                };
+                Canvas.SetLeft(label, margin - label.ActualWidth - 20);
+                Canvas.SetTop(label, yPos - label.ActualHeight / 2);
+                DrawingCanvas.Children.Add(label);
             }
 
-            DrawingCanvas.Children.Add(trendLine);
+            int numberOfXLabels = 7;
+            double xInterval = (maxX - minX) / numberOfXLabels;
 
-            TextBlock title = new TextBlock
+            for (int i = 0; i <= numberOfXLabels; i++)
             {
-                Text = _viewModel.ChartTitle, // Koristi svojstvo iz ViewModela
-                FontSize = 18,
-                FontWeight = FontWeights.Bold,
-                Foreground = Brushes.Black,
-                TextAlignment = TextAlignment.Center,
-                Background = Brushes.LightCoral
-            };
-            Canvas.SetLeft(title, (canvasWidth / 2) - (title.DesiredSize.Width / 2));
-            Canvas.SetTop(title, 15);
-            DrawingCanvas.Children.Add(title);
+                double xOADate = minX + xInterval * i;
+                DateTime xDateTime = DateTime.FromOADate(xOADate);
+                double xPos = margin + (xOADate - minX) / (maxX - minX) * plotAreaWidth;
 
-            TextBlock xLabel = new TextBlock { Text = "Timestamp", Foreground = Brushes.DarkGray, FontSize = 13, FontWeight = FontWeights.SemiBold };
-            Canvas.SetLeft(xLabel, canvasWidth / 2 - xLabel.DesiredSize.Width / 2);
-            Canvas.SetTop(xLabel, canvasHeight - margin + 25);
-            DrawingCanvas.Children.Add(xLabel);
+                Line tick = new Line
+                {
+                    X1 = xPos,
+                    Y1 = canvasHeight - margin,
+                    X2 = xPos,
+                    Y2 = canvasHeight - margin + 5,
+                    Stroke = Brushes.Gray,
+                    StrokeThickness = 0.5
+                };
+                DrawingCanvas.Children.Add(tick);
 
-            TextBlock yLabel = new TextBlock { Text = "Value", Foreground = Brushes.DarkGray, FontSize = 13, FontWeight = FontWeights.SemiBold };
-            yLabel.RenderTransform = new RotateTransform(-90);
-            Canvas.SetLeft(yLabel, 15);
-            Canvas.SetTop(yLabel, canvasHeight / 2 - yLabel.DesiredSize.Height / 2);
-            DrawingCanvas.Children.Add(yLabel);
+                TextBlock label = new TextBlock
+                {
+                    Text = xDateTime.ToString("dd.MM.yyyy\nHH:mm"), 
+                    FontSize = 9,
+                    Foreground = Brushes.Black
+                };
 
-            TextBlock minTsLabel = new TextBlock { Text = minTimestamp.ToString("yyyy-MM-dd\nHH:mm"), Foreground = Brushes.DarkGray, FontSize = 10, TextAlignment = TextAlignment.Center };
-            Canvas.SetLeft(minTsLabel, margin - (minTsLabel.DesiredSize.Width / 2));
-            Canvas.SetTop(minTsLabel, canvasHeight - margin + 5);
-            DrawingCanvas.Children.Add(minTsLabel);
-
-            TextBlock maxTsLabel = new TextBlock { Text = maxTimestamp.ToString("yyyy-MM-dd\nHH:mm"), Foreground = Brushes.DarkGray, FontSize = 10, TextAlignment = TextAlignment.Center };
-            Canvas.SetLeft(maxTsLabel, canvasWidth - margin - (maxTsLabel.DesiredSize.Width / 2));
-            Canvas.SetTop(maxTsLabel, canvasHeight - margin + 5);
-            DrawingCanvas.Children.Add(maxTsLabel);
-
-            TextBlock minValLabel = new TextBlock { Text = minValue.ToString("F2"), Foreground = Brushes.DarkGray, FontSize = 10 };
-            Canvas.SetLeft(minValLabel, margin - minValLabel.DesiredSize.Width - 5);
-            Canvas.SetTop(minValLabel, canvasHeight - margin - (minValLabel.DesiredSize.Height / 2));
-            DrawingCanvas.Children.Add(minValLabel);
-
-            TextBlock maxValLabel = new TextBlock { Text = maxValue.ToString("F2"), Foreground = Brushes.DarkGray, FontSize = 10 };
-            Canvas.SetLeft(maxValLabel, margin - maxValLabel.DesiredSize.Width - 5);
-            Canvas.SetTop(maxValLabel, margin - (maxValLabel.DesiredSize.Height / 2));
-            DrawingCanvas.Children.Add(maxValLabel);
-
-            for (int i = 1; i < numHorizontalLines; i++)
-            {
-                double yValue = minValue + (maxValue - minValue) * (numHorizontalLines - i) / numHorizontalLines;
-                TextBlock valLabel = new TextBlock { Text = yValue.ToString("F2"), Foreground = Brushes.Gray, FontSize = 9 };
-                Canvas.SetLeft(valLabel, margin - valLabel.DesiredSize.Width - 5);
-                Canvas.SetTop(valLabel, margin + (plotAreaHeight / numHorizontalLines) * i - (valLabel.DesiredSize.Height / 2));
-                DrawingCanvas.Children.Add(valLabel);
+                Canvas.SetLeft(label, xPos - (label.ActualWidth / 2));
+                Canvas.SetTop(label, canvasHeight - margin + 10);
+                DrawingCanvas.Children.Add(label);
             }
 
-            for (int i = 1; i < numVerticalLines; i++)
+
+            if (renderMode == "Line Chart")
             {
-                DateTime dtValue = minTimestamp.AddSeconds((maxTimestamp - minTimestamp).TotalSeconds * i / numVerticalLines);
-                TextBlock dtLabel = new TextBlock { Text = dtValue.ToString("HH:mm"), Foreground = Brushes.Gray, FontSize = 9, TextAlignment = TextAlignment.Center };
-                Canvas.SetLeft(dtLabel, margin + (plotAreaWidth / numVerticalLines) * i - (dtLabel.DesiredSize.Width / 2));
-                Canvas.SetTop(dtLabel, canvasHeight - margin + 5);
-                DrawingCanvas.Children.Add(dtLabel);
+                Debug.WriteLine("Rendering Line Chart with AGGREGATED data.");
+                for (int i = 0; i < trendData.Count - 1; i++)
+                {
+                    TrendAnalysis.Contracts.TrendDataPoint p1 = trendData[i];
+                    TrendAnalysis.Contracts.TrendDataPoint p2 = trendData[i + 1];
+
+                    Point linePoint1 = new Point(
+                        margin + (p1.Timestamp.ToOADate() - minX) / (maxX - minX) * plotAreaWidth,
+                        canvasHeight - margin - (p1.Value - minY) / (maxY - minY) * plotAreaHeight
+                    );
+                    Point linePoint2 = new Point(
+                        margin + (p2.Timestamp.ToOADate() - minX) / (maxX - minX) * plotAreaWidth,
+                        canvasHeight - margin - (p2.Value - minY) / (maxY - minY) * plotAreaHeight
+                    );
+
+                    Line line = new Line
+                    {
+                        X1 = linePoint1.X,
+                        Y1 = linePoint1.Y,
+                        X2 = linePoint2.X,
+                        Y2 = linePoint2.Y,
+                        Stroke = Brushes.Blue,
+                        StrokeThickness = 1.5
+                    };
+                    DrawingCanvas.Children.Add(line);
+
+                    Ellipse pointCircle1 = new Ellipse
+                    {
+                        Width = 4,
+                        Height = 4,
+                        Fill = Brushes.Red
+                    };
+                    Canvas.SetLeft(pointCircle1, linePoint1.X - pointCircle1.Width / 2);
+                    Canvas.SetTop(pointCircle1, linePoint1.Y - pointCircle1.Height / 2);
+                    DrawingCanvas.Children.Add(pointCircle1);
+                }
+                if (trendData.Any())
+                {
+                    TrendAnalysis.Contracts.TrendDataPoint lastPoint = trendData.Last();
+                    Point lastLinePoint = new Point(
+                        margin + (lastPoint.Timestamp.ToOADate() - minX) / (maxX - minX) * plotAreaWidth,
+                        canvasHeight - margin - (lastPoint.Value - minY) / (maxY - minY) * plotAreaHeight
+                    );
+                    Ellipse pointCircleLast = new Ellipse
+                    {
+                        Width = 4,
+                        Height = 4,
+                        Fill = Brushes.Red
+                    };
+                    Canvas.SetLeft(pointCircleLast, lastLinePoint.X - pointCircleLast.Width / 2);
+                    Canvas.SetTop(pointCircleLast, lastLinePoint.Y - pointCircleLast.Height / 2);
+                    DrawingCanvas.Children.Add(pointCircleLast);
+                }
             }
+            else if (renderMode == "Bar Chart")
+            {
+                Debug.WriteLine("Rendering Bar Chart with AGGREGATED data.");
+                double barWidthFactor = 0.8;
+                double individualBarWidth;
 
-            stopwatch.Stop();
-            long renderingTime = stopwatch.ElapsedMilliseconds;
+                double xIntervalForBars = (maxX - minX) / trendData.Count; 
+                individualBarWidth = (plotAreaWidth / trendData.Count) * barWidthFactor;
 
-            MessageBox.Show($"Renderovanje grafikona (softverski, {pointsToRender:N0} tačaka): {renderingTime} ms.", "Informacija", MessageBoxButton.OK, MessageBoxImage.Information);
+
+                if (individualBarWidth < 1) individualBarWidth = 1;
+
+
+                for (int i = 0; i < trendData.Count; i++)
+                {
+                    TrendAnalysis.Contracts.TrendDataPoint p = trendData[i];
+
+                    double xPos = margin + (p.Timestamp.ToOADate() - minX) / (maxX - minX) * plotAreaWidth;
+
+                    double barHeight = (p.Value - minY) / (maxY - minY) * plotAreaHeight;
+                    double yPos = canvasHeight - margin - barHeight; 
+
+                    Rectangle bar = new Rectangle
+                    {
+                        Width = individualBarWidth,
+                        Height = barHeight,
+                        Fill = Brushes.Green,
+                        Stroke = Brushes.DarkGreen,
+                        StrokeThickness = 1
+                    };
+
+                    Canvas.SetLeft(bar, xPos - individualBarWidth / 2);
+                    Canvas.SetTop(bar, yPos);
+
+                    DrawingCanvas.Children.Add(bar);
+                }
+            }
         }
+
 
         protected override void OnClosed(EventArgs e)
         {
-            _viewModel?.DisposeClient();
+            if (this.DataContext is MainViewModel viewModel)
+            {
+                viewModel.DisposeClient();
+            }
             base.OnClosed(e);
         }
     }

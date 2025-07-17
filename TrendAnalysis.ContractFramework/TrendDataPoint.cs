@@ -1,12 +1,16 @@
 ﻿using System;
-using System.Runtime.Serialization; 
+using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.Serialization;
+using System.Text;
+using System.Threading.Tasks;
 
-namespace TrendAnalysis.Service
+namespace TrendAnalysis.ContractFramework
 {
     [DataContract]
     public class TrendDataPoint
     {
-      
+
         [DataMember(Order = 1)]
         public DateTime Timestamp { get; set; }
 

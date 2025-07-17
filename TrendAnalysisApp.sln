@@ -11,6 +11,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TrendDataGenerator", "Trend
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TrendAnalysis.ViewModel", "TrendAnalysis.ViewModel\TrendAnalysis.ViewModel.csproj", "{006BCC46-06A5-49CA-9FFC-634FA4B81F20}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TrendAnalysis.ContractFramework", "TrendAnalysis.ContractFramework\TrendAnalysis.ContractFramework.csproj", "{A9C7B05B-453B-40DD-93BD-9BE8535A3070}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TrendAnalysis.Contracts", "TrendAnalysis.Contracts\TrendAnalysis.Contracts.csproj", "{63EEA6E3-D982-48A3-9EB1-AED547EC2DD8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +37,14 @@ Global
 		{006BCC46-06A5-49CA-9FFC-634FA4B81F20}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{006BCC46-06A5-49CA-9FFC-634FA4B81F20}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{006BCC46-06A5-49CA-9FFC-634FA4B81F20}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A9C7B05B-453B-40DD-93BD-9BE8535A3070}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A9C7B05B-453B-40DD-93BD-9BE8535A3070}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A9C7B05B-453B-40DD-93BD-9BE8535A3070}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A9C7B05B-453B-40DD-93BD-9BE8535A3070}.Release|Any CPU.Build.0 = Release|Any CPU
+		{63EEA6E3-D982-48A3-9EB1-AED547EC2DD8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{63EEA6E3-D982-48A3-9EB1-AED547EC2DD8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{63EEA6E3-D982-48A3-9EB1-AED547EC2DD8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{63EEA6E3-D982-48A3-9EB1-AED547EC2DD8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

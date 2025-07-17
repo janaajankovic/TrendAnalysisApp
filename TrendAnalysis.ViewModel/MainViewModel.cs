@@ -1,42 +1,130 @@
-﻿using System;
-using System.Collections.ObjectModel;
-using System.Linq;
-using System.Threading.Tasks;
-// Dodajte using za vaš generisani WCF servis klijent iz UI projekta
-// PAZNJA: OVO CE VEROVATNO BITI CRVENO DOK NE DODAMO REFERENCU U KORAKU 5
-using TrendAnalysis.UI.TrendService; // Primer: Vaš generisani WCF klijent namespace
+﻿using System.Collections.ObjectModel;
+using System.Diagnostics;
+using TrendAnalysis.Contracts;
+using OxyPlot;
+using OxyPlot.Series;
+using OxyPlot.Axes;
 
 namespace TrendAnalysis.ViewModel
 {
     public class MainViewModel : BaseViewModel
     {
-        private readonly TrendDataServiceClient _client; // Klijent se sada dobija putem Dependency Injectiona
+        private readonly ITrendDataService _client;
         private ObservableCollection<TrendDataPoint> _currentTrendData;
+
         private DateTime? _startDate;
         private DateTime? _endDate;
         private string _statusMessage;
         private bool _isLoading;
         private string _selectedRenderMode;
         private ObservableCollection<string> _renderModes;
+        private string _chartTitle;
 
-        public MainViewModel(TrendDataServiceClient client) // Konstruktor prima klijenta
+        private int _loadingProgress;
+        public int LoadingProgress
         {
-            _client = client ?? throw new ArgumentNullException(nameof(client));
+            get => _loadingProgress;
+            set => SetProperty(ref _loadingProgress, value);
+        }
+
+        private bool _isIndeterminateProgress;
+        public bool IsIndeterminateProgress
+        {
+            get => _isIndeterminateProgress;
+            set => SetProperty(ref _isIndeterminateProgress, value);
+        }
+
+        private TimeSpan _loadDuration;
+        public TimeSpan LoadDuration
+        {
+            get => _loadDuration;
+            set => SetProperty(ref _loadDuration, value);
+        }
+
+        private ObservableCollection<string> _renderingMethods;
+        public ObservableCollection<string> RenderingMethods
+        {
+            get => _renderingMethods;
+            set => SetProperty(ref _renderingMethods, value);
+        }
+
+        private string _selectedRenderingMethod;
+        public string SelectedRenderingMethod
+        {
+            get => _selectedRenderingMethod;
+            set
+            {
+                if (SetProperty(ref _selectedRenderingMethod, value))
+                {
+                    StatusMessage = $"Selected rendering method: {value}. Click 'Load Data' to apply.";
+                    DataLoadedAndReadyForRender = false;
+                    if (OxyPlotModel == null)
+                    {
+                        OxyPlotModel = new PlotModel { Title = ChartTitle };
+                    }
+
+                    OxyPlotModel.Series.Clear();
+                    OxyPlotModel.Axes.Clear();
+                    OxyPlotModel.InvalidatePlot(true);
+                }
+            }
+        }
+
+        private PlotModel _oxyPlotModel;
+        public PlotModel OxyPlotModel
+        {
+            get => _oxyPlotModel;
+            set => SetProperty(ref _oxyPlotModel, value);
+        }
+
+        public MainViewModel(ITrendDataService client)
+        {
+            _client = client;
             _currentTrendData = new ObservableCollection<TrendDataPoint>();
             _endDate = DateTime.Today;
-            _startDate = DateTime.Today.AddMonths(-1); // Default period za mesec dana unazad
-
+            _startDate = DateTime.Today.AddMonths(-1);
+            IsLoading = false;
+            LoadingProgress = 0;
+            IsIndeterminateProgress = false;
             LoadDataCommand = new RelayCommand(async () => await LoadData(), () => CanLoadData());
+
             RenderModes = new ObservableCollection<string> { "Line Chart", "Bar Chart" };
-            SelectedRenderMode = "Line Chart"; // Default
+            SelectedRenderMode = "Line Chart";
+
+            RenderingMethods = new ObservableCollection<string> { "Softverski (Canvas)", "Hardverski (OxyPlot)" };
+            SelectedRenderingMethod = "Softverski (Canvas)";
+
             StatusMessage = "Welcome to Trend Analysis App!";
+
+            OxyPlotModel = new PlotModel { Title = ChartTitle };
+        }
+
+        public string ChartTitle
+        {
+            get => _chartTitle;
+            set => SetProperty(ref _chartTitle, value);
         }
 
         public ObservableCollection<TrendDataPoint> CurrentTrendData
         {
             get => _currentTrendData;
-            set => SetProperty(ref _currentTrendData, value);
+            set
+            {
+                if (_currentTrendData != value)
+                {
+                    _currentTrendData = value;
+                    OnPropertyChanged(nameof(CurrentTrendData));
+                }
+            }
         }
+
+        private bool _dataLoadedAndReadyForRender;
+        public bool DataLoadedAndReadyForRender
+        {
+            get => _dataLoadedAndReadyForRender;
+            set => SetProperty(ref _dataLoadedAndReadyForRender, value);
+        }
+        public event Action DataReadyForChartRender;
 
         public DateTime? StartDate
         {
@@ -65,7 +153,22 @@ namespace TrendAnalysis.ViewModel
         public string SelectedRenderMode
         {
             get => _selectedRenderMode;
-            set => SetProperty(ref _selectedRenderMode, value);
+            set
+            {
+                if (SetProperty(ref _selectedRenderMode, value))
+                {
+                    if (SelectedRenderingMethod == "Softverski (Canvas)")
+                    {
+                        DataReadyForChartRender?.Invoke();
+                    }
+
+                    if (SelectedRenderingMethod == "Hardverski (OxyPlot)")
+                    {
+                        RenderChartWithOxyPlot();
+                    }
+                }
+            }
+
         }
 
         public ObservableCollection<string> RenderModes
@@ -81,33 +184,224 @@ namespace TrendAnalysis.ViewModel
             return !IsLoading && StartDate.HasValue && EndDate.HasValue && StartDate.Value <= EndDate.Value;
         }
 
+        public void DisposeClient()
+        {
+            if (_client is IDisposable disposableClient)
+            {
+                disposableClient.Dispose();
+            }
+        }
+
         private async Task LoadData()
         {
             IsLoading = true;
+            IsIndeterminateProgress = true;
+            DataLoadedAndReadyForRender = false;
             StatusMessage = "Loading data...";
-            CurrentTrendData.Clear(); // Clear existing data
+            LoadingProgress = 0;
+            LoadDuration = TimeSpan.Zero;
+            CurrentTrendData.Clear();
+
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+
             try
             {
                 var data = await _client.GetTrendDataAsync(StartDate.Value, EndDate.Value);
+                IsIndeterminateProgress = false;
+
                 if (data != null && data.Any())
                 {
-                    CurrentTrendData = new ObservableCollection<TrendDataPoint>(data);
-                    StatusMessage = $"Loaded {data.Length} records from service.";
+                    foreach (var point in data)
+                    {
+                        CurrentTrendData.Add(point);
+                    }
+                    LoadingProgress = 100;
+
+                    StatusMessage = $"Loaded {data.Count} records. Rendering chart...";
+
+                    RenderChartBasedOnMethod();
+
+                    stopwatch.Stop();
+                    LoadDuration = stopwatch.Elapsed;
+
+                    StatusMessage = $"Loaded {data.Count} records and rendered chart in {LoadDuration.TotalSeconds:F2} seconds.";
+                    DataLoadedAndReadyForRender = true;
                 }
                 else
                 {
-                    StatusMessage = "No data found for the selected period.";
+                    stopwatch.Stop();
+                    LoadDuration = stopwatch.Elapsed;
+                    StatusMessage = $"No data found for the selected period. Time elapsed: {LoadDuration.TotalSeconds:F2} seconds.";
+                    DataLoadedAndReadyForRender = false;
+                    LoadingProgress = 100;
+                    OxyPlotModel.Series.Clear();
+                    OxyPlotModel.InvalidatePlot(true);
                 }
             }
             catch (Exception ex)
             {
-                StatusMessage = $"Error loading data: {ex.Message}";
-                // Za detaljnije debugovanje, možete logovati ex.ToString()
+                stopwatch.Stop();
+                LoadDuration = stopwatch.Elapsed;
+                StatusMessage = $"Error loading data: {ex.Message}. Time elapsed: {LoadDuration.TotalSeconds:F2} seconds.";
+                DataLoadedAndReadyForRender = false;
+                LoadingProgress = 0;
+                OxyPlotModel.Series.Clear();
+                OxyPlotModel.InvalidatePlot(true);
             }
             finally
             {
                 IsLoading = false;
+                IsIndeterminateProgress = false;
+                LoadDataCommand.RaiseCanExecuteChanged();
             }
         }
+
+        private void RenderChartBasedOnMethod()
+        {
+            if (OxyPlotModel == null)
+            {
+                OxyPlotModel = new PlotModel { Title = ChartTitle };
+            }
+
+            if (CurrentTrendData == null || !CurrentTrendData.Any())
+            {
+                DataReadyForChartRender?.Invoke();
+                OxyPlotModel.Series.Clear();
+                OxyPlotModel.InvalidatePlot(true);
+                return;
+            }
+
+            switch (SelectedRenderingMethod)
+            {
+                case "Softverski (Canvas)":
+                    DataReadyForChartRender?.Invoke();
+                    break;
+                case "Hardverski (OxyPlot)":
+                    RenderChartWithOxyPlot();
+                    break;
+                default:
+                    DataReadyForChartRender?.Invoke();
+                    break;
+            }
+        }
+
+        private void RenderChartWithOxyPlot()
+        {
+            if (OxyPlotModel == null)
+            {
+                OxyPlotModel = new PlotModel { Title = ChartTitle };
+            }
+
+            OxyPlotModel.Series.Clear();
+            OxyPlotModel.Axes.Clear();
+            OxyPlotModel.Title = ChartTitle;
+
+            List<TrendDataPoint> aggregatedData = new List<TrendDataPoint>();
+
+            if (CurrentTrendData != null && CurrentTrendData.Any())
+            {
+                aggregatedData = CurrentTrendData
+                    .GroupBy(dp => new DateTime(dp.Timestamp.Year, dp.Timestamp.Month, dp.Timestamp.Day, dp.Timestamp.Hour, 0, 0)) 
+                    .Select(g => new TrendDataPoint
+                    {
+                        Timestamp = g.Key,
+                        Value = g.Average(dp => dp.Value) 
+                    })
+                    .OrderBy(dp => dp.Timestamp)
+                    .ToList();
+            }
+
+
+            if (SelectedRenderMode == "Line Chart")
+            {
+                var xAxis = new DateTimeAxis
+                {
+                    Position = AxisPosition.Bottom,
+                    StringFormat = "dd.MM.yyyy",
+                    Title = "Datum",
+                    MajorGridlineStyle = LineStyle.Solid,
+                    MinorGridlineStyle = LineStyle.Dot,
+                    IntervalType = DateTimeIntervalType.Auto,
+                    IsAxisVisible = true
+                };
+                OxyPlotModel.Axes.Add(xAxis);
+
+                var yAxis = new LinearAxis
+                {
+                    Position = AxisPosition.Left,
+                    Title = "Vrijednost",
+                    MajorGridlineStyle = LineStyle.Solid,
+                    MinorGridlineStyle = LineStyle.Dot,
+                    IsAxisVisible = true
+                };
+                OxyPlotModel.Axes.Add(yAxis);
+
+                var lineSeries = new LineSeries
+                {
+                    Title = "Trend",
+                    Color = OxyColors.Blue,
+                    StrokeThickness = 1.5,
+                    MarkerType = MarkerType.Circle,
+                    MarkerSize = 2,
+                    MarkerFill = OxyColors.Red
+                };
+
+                foreach (var dataPoint in aggregatedData)
+                {
+                    lineSeries.Points.Add(DateTimeAxis.CreateDataPoint(dataPoint.Timestamp, dataPoint.Value));
+                }
+                OxyPlotModel.Series.Add(lineSeries);
+            }
+            else if (SelectedRenderMode == "Bar Chart")
+            {
+                var categoryAxis = new CategoryAxis
+                {
+                    Position = AxisPosition.Bottom,
+                    Title = "Datum",
+                    Key = "CategoryAxisKey",
+                    MajorGridlineStyle = LineStyle.Solid,
+                    MinorGridlineStyle = LineStyle.Dot,
+                    IsAxisVisible = false
+                };
+
+                categoryAxis.Labels.Clear();
+                foreach (var dataPoint in aggregatedData)
+                {
+                    categoryAxis.Labels.Add(dataPoint.Timestamp.ToString("dd.MM.yyyy"));
+                }
+                OxyPlotModel.Axes.Add(categoryAxis);
+
+                var valueAxis = new LinearAxis
+                {
+                    Position = AxisPosition.Left,
+                    Title = "Vrijednost",
+                    Key = "ValueAxisKey",
+                    MajorGridlineStyle = LineStyle.Solid,
+                    MinorGridlineStyle = LineStyle.Dot,
+                    IsAxisVisible = true
+                };
+                OxyPlotModel.Axes.Add(valueAxis);
+
+                var barSeries = new BarSeries
+                {
+                    Title = "Trend",
+                    FillColor = OxyColors.Green,
+                    StrokeColor = OxyColors.DarkGreen,
+                    StrokeThickness = 1,
+                    XAxisKey = valueAxis.Key,
+                    YAxisKey = categoryAxis.Key
+                };
+
+                for (int i = 0; i < aggregatedData.Count; i++)
+                {
+                    barSeries.Items.Add(new BarItem(aggregatedData[i].Value, i));
+                }
+                OxyPlotModel.Series.Add(barSeries);
+            }
+
+            OxyPlotModel.InvalidatePlot(true);
+        }
     }
+
 }

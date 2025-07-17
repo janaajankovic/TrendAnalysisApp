@@ -4,13 +4,13 @@
       "http://localhost:55223/TrendDataService.svc"
     ],
     "collectionTypes": [
-      "System.Collections.Generic.Dictionary`2",
-      "System.Collections.Generic.List`1"
+      "System.Array",
+      "System.Collections.Generic.Dictionary`2"
     ],
     "namespaceMappings": [
       "*, TrendService"
     ],
     "targetFramework": "net8.0",
-    "typeReuseMode": "All"
+    "typeReuseMode": "None"
   }
 }
