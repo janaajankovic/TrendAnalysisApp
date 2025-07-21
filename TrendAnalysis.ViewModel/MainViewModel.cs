@@ -54,16 +54,14 @@ namespace TrendAnalysis.ViewModel
             {
                 if (SetProperty(ref _selectedRenderingMethod, value))
                 {
-                    StatusMessage = $"Selected rendering method: {value}. Click 'Load Data' to apply.";
-                    DataLoadedAndReadyForRender = false;
-                    if (OxyPlotModel == null)
+                    if (CurrentTrendData != null && CurrentTrendData.Any())
                     {
-                        OxyPlotModel = new PlotModel { Title = ChartTitle };
+                        RenderChartBasedOnMethod();
                     }
-
-                    OxyPlotModel.Series.Clear();
-                    OxyPlotModel.Axes.Clear();
-                    OxyPlotModel.InvalidatePlot(true);
+                    else
+                    {
+                        StatusMessage = $"Selected rendering method: {value}. Please load data first.";
+                    }
                 }
             }
         }
@@ -88,6 +86,13 @@ namespace TrendAnalysis.ViewModel
             }
         }
 
+        private ObservableCollection<RenderMeasurement> _performanceMeasurements;
+        public ObservableCollection<RenderMeasurement> PerformanceMeasurements
+        {
+            get => _performanceMeasurements;
+            set => SetProperty(ref _performanceMeasurements, value);
+        }
+
         public MainViewModel(ITrendDataService client)
         {
             _client = client;
@@ -108,10 +113,21 @@ namespace TrendAnalysis.ViewModel
             StatusMessage = "Welcome to Trend Analysis App!";
 
             OxyPlotModel = new PlotModel { Title = ChartTitle };
+            _performanceMeasurements = new ObservableCollection<RenderMeasurement>();
             TrendDataPoint.CanvasChartRenderCompleted += (s, e) =>
             {
                 ChartRenderDuration = e;
                 Debug.WriteLine($"ViewModel Updated (Canvas): {e.TotalMilliseconds:F2} ms");
+                PerformanceMeasurements.Add(new RenderMeasurement
+                {
+                    Timestamp = DateTime.Now,
+                    RenderingMethod = "Softverski (Canvas)",
+                    ChartType = SelectedRenderMode, 
+                    NumberOfPoints = CurrentTrendData?.Count ?? 0,
+                    RenderDurationMs = e.TotalMilliseconds
+                });
+
+                StatusMessage = $"Loaded {CurrentTrendData.Count} records. Chart rendered in {e.TotalMilliseconds:F2} ms.";
             };
         }
 
@@ -225,13 +241,7 @@ namespace TrendAnalysis.ViewModel
                     CurrentTrendData = new ObservableCollection<TrendDataPoint>(data);
 
                     LoadingProgress = 100;
-
-                    StatusMessage = $"Loaded {data.Count} records. Rendering chart...";
-
                     RenderChartBasedOnMethod();
-
-
-                    StatusMessage = $"Loaded {data.Count} records and rendered chart in {ChartRenderDuration.TotalSeconds:F2} seconds.";
                     DataLoadedAndReadyForRender = true;
                 }
                 else
@@ -285,7 +295,13 @@ namespace TrendAnalysis.ViewModel
                 case "Hardverski (OxyPlot)":
                     RenderChartWithOxyPlot();
                     break;
+                case "Hardverski (DrawingVisual)":
+                    RenderTrigger = DateTime.Now; 
+                    System.Diagnostics.Debug.WriteLine("DrawingVisual render triggered from RenderChartBasedOnMethod.");
+                    break;
                 default:
+                    StatusMessage = "Unknown rendering method selected.";
+                    System.Diagnostics.Debug.WriteLine("Unknown rendering method in RenderChartBasedOnMethod.");
                     break;
             }
         }
@@ -417,6 +433,21 @@ namespace TrendAnalysis.ViewModel
             OxyPlotModel.InvalidatePlot(true);
             stopwatch.Stop();
             ChartRenderDuration = stopwatch.Elapsed;
+            if(PerformanceMeasurements == null)
+            {
+                _performanceMeasurements = new ObservableCollection<RenderMeasurement>();
+            }
+            PerformanceMeasurements.Add(new RenderMeasurement
+            {
+                Timestamp = DateTime.Now,
+                RenderingMethod = "Hardverski (OxyPlot)",
+                ChartType = SelectedRenderMode,
+                NumberOfPoints = CurrentTrendData?.Count ?? 0,
+                RenderDurationMs = stopwatch.Elapsed.TotalMilliseconds
+            });
+
+            StatusMessage = $"Loaded {CurrentTrendData.Count} records. Chart rendered in {ChartRenderDuration.TotalMilliseconds:F2} ms.";
+
         }
     }
 

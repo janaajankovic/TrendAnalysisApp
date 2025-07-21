@@ -57,6 +57,17 @@ namespace TrendAnalysis.UI
             {
                 _viewModel.ChartRenderDuration = e;
                 Debug.WriteLine($"ViewModel Updated (DrawingVisual): {e.TotalMilliseconds:F2} ms");
+
+                _viewModel.PerformanceMeasurements.Add(new RenderMeasurement
+                {
+                    Timestamp = DateTime.Now,
+                    RenderingMethod = "Hardverski (DrawingVisual)",
+                    ChartType = _viewModel.SelectedRenderMode, 
+                    NumberOfPoints = _viewModel.CurrentTrendData?.Count ?? 0,
+                    RenderDurationMs = e.TotalMilliseconds
+                });
+                _viewModel.StatusMessage = $"Loaded {_viewModel.CurrentTrendData.Count} records. Chart rendered in {e.TotalMilliseconds:F2} ms.";
+
             }
             else
             {
