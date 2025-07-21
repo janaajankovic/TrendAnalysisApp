@@ -11,15 +11,13 @@ namespace TrendAnalysis.UI.Converters
         {
             if (value is bool booleanValue)
             {
-                // Ako je true, vrati Visible; inače, vrati Collapsed
                 return booleanValue ? Visibility.Visible : Visibility.Collapsed;
             }
-            return Visibility.Collapsed; // Default za nepoznate vrijednosti
+            return Visibility.Collapsed; 
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            // Konverzija nazad nije potrebna za ProgressBar
             return DependencyProperty.UnsetValue;
         }
     }
