@@ -10,6 +10,7 @@ namespace TrendAnalysis.UI.AttachedProperties
 {
     public static class CanvasChartExtensions
     {
+
         public static readonly DependencyProperty ChartDataProperty =
             DependencyProperty.RegisterAttached(
                 "ChartData",
@@ -72,6 +73,8 @@ namespace TrendAnalysis.UI.AttachedProperties
         {
             Debug.WriteLine($"RedrawChart called for Canvas: {drawingCanvas.Name}. ActualWidth: {drawingCanvas.ActualWidth}, ActualHeight: {drawingCanvas.ActualHeight}");
 
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
             drawingCanvas.Children.Clear(); 
 
             ObservableCollection<TrendDataPoint> rawTrendData = GetChartData(drawingCanvas);
@@ -79,11 +82,13 @@ namespace TrendAnalysis.UI.AttachedProperties
 
             if (rawTrendData == null)
             {
+                stopwatch.Stop();
                 Debug.WriteLine("rawTrendData is NULL when GetChartData is called.");
                 return;
             }
             if (!rawTrendData.Any())
             {
+                stopwatch.Stop();
                 Debug.WriteLine("rawTrendData is EMPTY when GetChartData is called. Count: 0");
                 return; 
             }
@@ -104,6 +109,7 @@ namespace TrendAnalysis.UI.AttachedProperties
 
             if (!trendData.Any())
             {
+                stopwatch.Stop();
                 Debug.WriteLine("Aggregated data is EMPTY after grouping. This means grouping logic failed or raw data caused it to be empty.");
                 return;
             }
@@ -114,6 +120,7 @@ namespace TrendAnalysis.UI.AttachedProperties
 
             if (canvasWidth == 0 || canvasHeight == 0)
             {
+                stopwatch.Stop();
                 Debug.WriteLine("Canvas has zero width or height. Aborting redraw. This might happen on initial load.");
                 return;
             }
@@ -124,6 +131,7 @@ namespace TrendAnalysis.UI.AttachedProperties
 
             if (plotAreaWidth <= 0 || plotAreaHeight <= 0)
             {
+                stopwatch.Stop();
                 Debug.WriteLine("Plot area too small. Aborting redraw.");
                 return;
             }
@@ -282,7 +290,10 @@ namespace TrendAnalysis.UI.AttachedProperties
                     drawingCanvas.Children.Add(bar);
                 }
             }
+
             Debug.WriteLine("Finished RedrawChart.");
+            stopwatch.Stop();
+            TrendDataPoint.OnCanvasChartRenderCompleted(stopwatch.Elapsed);
         }
 
         private static void Canvas_SizeChanged(object sender, SizeChangedEventArgs e)

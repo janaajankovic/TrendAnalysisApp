@@ -1,28 +1,42 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Linq;
+﻿using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Media;
 using TrendAnalysis.Contracts;
-using System.Windows.Controls; 
+using System.Diagnostics;
 
 
 namespace TrendAnalysis.UI.Controls 
 {
     public class HardwareAcceleratedChartControl : FrameworkElement
     {
-        
+        public event EventHandler<TimeSpan> RenderCompleted;
+
         public static readonly DependencyProperty TrendDataProperty =
             DependencyProperty.Register(
                 "TrendData",
                 typeof(ObservableCollection<TrendDataPoint>),
                 typeof(HardwareAcceleratedChartControl),
-                new FrameworkPropertyMetadata(
+                 new FrameworkPropertyMetadata(
                     null,
-                    FrameworkPropertyMetadataOptions.AffectsRender, 
                     OnTrendDataChanged));
 
+
+        public static readonly DependencyProperty RenderTriggerProperty =
+         DependencyProperty.Register(
+             "RenderTrigger",
+             typeof(object),
+             typeof(HardwareAcceleratedChartControl),
+             new FrameworkPropertyMetadata(
+                 null,
+             OnRenderTriggerChanged));
+
+        public object RenderTrigger
+        {
+            get { return GetValue(RenderTriggerProperty); }
+            set { SetValue(RenderTriggerProperty, value); }
+        }
+
+        private bool _isReadyToRender = false;
         public ObservableCollection<TrendDataPoint> TrendData
         {
             get { return (ObservableCollection<TrendDataPoint>)GetValue(TrendDataProperty); }
@@ -35,8 +49,8 @@ namespace TrendAnalysis.UI.Controls
                 typeof(string),
                 typeof(HardwareAcceleratedChartControl),
                 new FrameworkPropertyMetadata(
-                    "Line Chart", 
-                    FrameworkPropertyMetadataOptions.AffectsRender)); 
+                 "Line Chart",
+             OnRenderTriggerChanged));
 
 
         public string ChartType
@@ -67,11 +81,19 @@ namespace TrendAnalysis.UI.Controls
 
         protected override void OnRender(DrawingContext drawingContext)
         {
+            if (!_isReadyToRender)
+            {
+                return; 
+            }
+
             base.OnRender(drawingContext);
 
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
 
             if (TrendData == null || !TrendData.Any())
             {
+                stopwatch.Stop();
                 return;
             }
 
@@ -80,6 +102,7 @@ namespace TrendAnalysis.UI.Controls
 
             if (canvasWidth == 0 || canvasHeight == 0)
             {
+                stopwatch.Stop();
                 return;
             }
 
@@ -89,10 +112,27 @@ namespace TrendAnalysis.UI.Controls
 
             if (plotAreaWidth <= 0 || plotAreaHeight <= 0)
             {
+                stopwatch.Stop();
                 return; 
             }
 
-            List<TrendDataPoint> trendData = TrendData.ToList(); 
+            List<TrendDataPoint> aggregatedData = TrendData
+           .GroupBy(dp => new DateTime(dp.Timestamp.Year, dp.Timestamp.Month, dp.Timestamp.Day, dp.Timestamp.Hour, 0, 0))
+           .Select(g => new TrendDataPoint
+           {
+               Timestamp = g.Key,
+               Value = g.Average(dp => dp.Value)
+           })
+           .OrderBy(dp => dp.Timestamp)
+           .ToList();
+
+            List<TrendDataPoint> trendData = aggregatedData; 
+
+            if (!trendData.Any()) 
+            {
+                stopwatch.Stop();
+                return;
+            }
 
             double minX = trendData.Min(p => p.Timestamp.ToOADate());
             double maxX = trendData.Max(p => p.Timestamp.ToOADate());
@@ -110,8 +150,6 @@ namespace TrendAnalysis.UI.Controls
             Pen axisPen = new Pen(Brushes.Black, 2);
             drawingContext.DrawLine(axisPen, new Point(margin, canvasHeight - margin), new Point(canvasWidth - margin, canvasHeight - margin)); 
             drawingContext.DrawLine(axisPen, new Point(margin, margin), new Point(margin, canvasHeight - margin));
-
-
             
             int numberOfYLabels = 5;
             Pen tickPen = new Pen(Brushes.Gray, 0.5);
@@ -208,6 +246,19 @@ namespace TrendAnalysis.UI.Controls
                     drawingContext.DrawRectangle(barBrush, barOutlinePen, new Rect(xCenterPos - individualBarWidth / 2, yPos, individualBarWidth, barHeight));
                 }
             }
+
+            stopwatch.Stop();
+            RenderCompleted?.Invoke(null, stopwatch.Elapsed);
+            _isReadyToRender = false;
+            Debug.WriteLine($"OnRender (HardwareAcceleratedChartControl) completed in {stopwatch.Elapsed.TotalMilliseconds:F2} ms.");
+        }
+
+        private static void OnRenderTriggerChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var control = (HardwareAcceleratedChartControl)d;
+            control._isReadyToRender = true; 
+            control.InvalidateVisual();
+            System.Diagnostics.Debug.WriteLine("OnRenderTriggerChanged triggered. _isReadyToRender set to true."); 
         }
 
         private Point TransformDataToScreen(TrendDataPoint dataPoint, double minX, double maxX, double minY, double maxY, double plotAreaWidth, double plotAreaHeight, double margin, double canvasHeight)

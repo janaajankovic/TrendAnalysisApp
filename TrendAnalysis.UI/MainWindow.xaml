@@ -6,6 +6,7 @@
         xmlns:System="clr-namespace:System;assembly=mscorlib"
         xmlns:converters="clr-namespace:TrendAnalysis.UI.Converters"
         xmlns:ap="clr-namespace:TrendAnalysis.UI.AttachedProperties"
+        xmlns:controls="clr-namespace:TrendAnalysis.UI.Controls"
         xmlns:local="clr-namespace:TrendAnalysis.UI.Controls"
         xmlns:viewModel="clr-namespace:TrendAnalysis.ViewModel;assembly=TrendAnalysis.ViewModel"
         xmlns:oxy="http://oxyplot.org/wpf"
@@ -216,6 +217,12 @@
                 <oxy:PlotView Model="{Binding OxyPlotModel}"
                       Visibility="{Binding SelectedRenderingMethod, Converter={StaticResource StringToVisibilityConverter}, ConverterParameter=Hardverski (OxyPlot)}"/>
 
+                <controls:HardwareAcceleratedChartControl
+                    x:Name="MyDrawingVisualChart"
+                      RenderTrigger="{Binding RenderTrigger}"
+                      TrendData="{Binding CurrentTrendData}"
+                      ChartType="{Binding SelectedRenderMode}"
+                      Visibility="{Binding SelectedRenderingMethod, Converter={StaticResource StringToVisibilityConverter}, ConverterParameter=Hardverski (DrawingVisual)}"/>
             </Grid>
         </Border>
 

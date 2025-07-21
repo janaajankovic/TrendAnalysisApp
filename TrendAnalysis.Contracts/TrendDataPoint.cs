@@ -10,6 +10,12 @@ namespace TrendAnalysis.Contracts
     [DataContract]
     public class TrendDataPoint
     {
+        public static event EventHandler<TimeSpan> CanvasChartRenderCompleted;
+
+        public static void OnCanvasChartRenderCompleted(TimeSpan duration)
+        {
+            CanvasChartRenderCompleted?.Invoke(null, duration);
+        }
 
         [DataMember(Order = 1)]
         public DateTime Timestamp { get; set; }

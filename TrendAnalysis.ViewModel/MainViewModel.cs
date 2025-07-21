@@ -32,11 +32,11 @@ namespace TrendAnalysis.ViewModel
             set => SetProperty(ref _isIndeterminateProgress, value);
         }
 
-        private TimeSpan _loadDuration;
-        public TimeSpan LoadDuration
+        private TimeSpan _chartRenderDuration;
+        public TimeSpan ChartRenderDuration
         {
-            get => _loadDuration;
-            set => SetProperty(ref _loadDuration, value);
+            get => _chartRenderDuration;
+            set => SetProperty(ref _chartRenderDuration, value);
         }
 
         private ObservableCollection<string> _renderingMethods;
@@ -75,6 +75,19 @@ namespace TrendAnalysis.ViewModel
             set => SetProperty(ref _oxyPlotModel, value);
         }
 
+        private object _renderTrigger;
+        public object RenderTrigger
+        {
+            get { return _renderTrigger; }
+            set
+            {
+                if (SetProperty(ref _renderTrigger, value)) 
+                {
+                    System.Diagnostics.Debug.WriteLine($"RenderTrigger in ViewModel changed to: {value}");
+                }
+            }
+        }
+
         public MainViewModel(ITrendDataService client)
         {
             _client = client;
@@ -89,12 +102,17 @@ namespace TrendAnalysis.ViewModel
             RenderModes = new ObservableCollection<string> { "Line Chart", "Bar Chart" };
             SelectedRenderMode = "Line Chart";
 
-            RenderingMethods = new ObservableCollection<string> { "Softverski (Canvas)", "Hardverski (OxyPlot)" };
+            RenderingMethods = new ObservableCollection<string> { "Softverski (Canvas)", "Hardverski (OxyPlot)", "Hardverski (DrawingVisual)" };
             SelectedRenderingMethod = "Softverski (Canvas)";
 
             StatusMessage = "Welcome to Trend Analysis App!";
 
             OxyPlotModel = new PlotModel { Title = ChartTitle };
+            TrendDataPoint.CanvasChartRenderCompleted += (s, e) =>
+            {
+                ChartRenderDuration = e;
+                Debug.WriteLine($"ViewModel Updated (Canvas): {e.TotalMilliseconds:F2} ms");
+            };
         }
 
         public string ChartTitle
@@ -190,17 +208,18 @@ namespace TrendAnalysis.ViewModel
             DataLoadedAndReadyForRender = false;
             StatusMessage = "Loading data...";
             LoadingProgress = 0;
-            LoadDuration = TimeSpan.Zero;
             CurrentTrendData.Clear();
-
-            Stopwatch stopwatch = new Stopwatch();
-            stopwatch.Start();
+            if (SelectedRenderingMethod == "Hardverski (DrawingVisual)")
+            {
+                RenderTrigger = DateTime.Now;
+            }
 
             try
             {
                 var data = await _client.GetTrendDataAsync(StartDate.Value, EndDate.Value);
                 IsIndeterminateProgress = false;
 
+                
                 if (data != null && data.Any())
                 {
                     CurrentTrendData = new ObservableCollection<TrendDataPoint>(data);
@@ -211,17 +230,13 @@ namespace TrendAnalysis.ViewModel
 
                     RenderChartBasedOnMethod();
 
-                    stopwatch.Stop();
-                    LoadDuration = stopwatch.Elapsed;
 
-                    StatusMessage = $"Loaded {data.Count} records and rendered chart in {LoadDuration.TotalSeconds:F2} seconds.";
+                    StatusMessage = $"Loaded {data.Count} records and rendered chart in {ChartRenderDuration.TotalSeconds:F2} seconds.";
                     DataLoadedAndReadyForRender = true;
                 }
                 else
                 {
-                    stopwatch.Stop();
-                    LoadDuration = stopwatch.Elapsed;
-                    StatusMessage = $"No data found for the selected period. Time elapsed: {LoadDuration.TotalSeconds:F2} seconds.";
+                    StatusMessage = $"No data found for the selected period. Time elapsed: {ChartRenderDuration.TotalSeconds:F2} seconds.";
                     DataLoadedAndReadyForRender = false;
                     LoadingProgress = 100;
                     OxyPlotModel.Series.Clear();
@@ -232,9 +247,7 @@ namespace TrendAnalysis.ViewModel
             }
             catch (Exception ex)
             {
-                stopwatch.Stop();
-                LoadDuration = stopwatch.Elapsed;
-                StatusMessage = $"Error loading data: {ex.Message}. Time elapsed: {LoadDuration.TotalSeconds:F2} seconds.";
+                StatusMessage = $"Error loading data: {ex.Message}. Time elapsed: {ChartRenderDuration.TotalSeconds:F2} seconds.";
                 DataLoadedAndReadyForRender = false;
                 LoadingProgress = 0;
                 OxyPlotModel.Series.Clear();
@@ -273,13 +286,14 @@ namespace TrendAnalysis.ViewModel
                     RenderChartWithOxyPlot();
                     break;
                 default:
-                    DataReadyForChartRender?.Invoke();
                     break;
             }
         }
 
         private void RenderChartWithOxyPlot()
         {
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
             if (OxyPlotModel == null)
             {
                 OxyPlotModel = new PlotModel { Title = ChartTitle };
@@ -302,6 +316,14 @@ namespace TrendAnalysis.ViewModel
                     })
                     .OrderBy(dp => dp.Timestamp)
                     .ToList();
+            }
+            else
+            {
+                stopwatch.Stop();
+                ChartRenderDuration = stopwatch.Elapsed;
+                Debug.WriteLine($"RenderChartWithOxyPlot (OxyPlot) completed in {stopwatch.Elapsed.TotalMilliseconds:F2} ms (no data).");
+                OxyPlotModel.InvalidatePlot(true);
+                return;
             }
 
 
@@ -393,6 +415,8 @@ namespace TrendAnalysis.ViewModel
             }
 
             OxyPlotModel.InvalidatePlot(true);
+            stopwatch.Stop();
+            ChartRenderDuration = stopwatch.Elapsed;
         }
     }
 
