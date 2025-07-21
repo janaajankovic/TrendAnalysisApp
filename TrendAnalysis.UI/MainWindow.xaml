@@ -3,9 +3,10 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:TrendAnalysis.UI"
         xmlns:System="clr-namespace:System;assembly=mscorlib"
         xmlns:converters="clr-namespace:TrendAnalysis.UI.Converters"
+        xmlns:ap="clr-namespace:TrendAnalysis.UI.AttachedProperties"
+        xmlns:local="clr-namespace:TrendAnalysis.UI.Controls"
         xmlns:viewModel="clr-namespace:TrendAnalysis.ViewModel;assembly=TrendAnalysis.ViewModel"
         xmlns:oxy="http://oxyplot.org/wpf"
         mc:Ignorable="d"
@@ -207,10 +208,13 @@
         <Border Grid.Row="1" Margin="10,0,10,10" Background="#F0F0F0" BorderBrush="#CCCCCC" BorderThickness="1" CornerRadius="5">
             <Grid>
                 <Canvas x:Name="DrawingCanvas" Background="Transparent"
-                        Visibility="{Binding SelectedRenderingMethod, Converter={StaticResource StringToVisibilityConverter}, ConverterParameter=Softverski (Canvas)}"/>
+                ap:CanvasChartExtensions.ChartData="{Binding CurrentTrendData}"
+                ap:CanvasChartExtensions.ChartRenderMode="{Binding SelectedRenderMode}"
+                Visibility="{Binding SelectedRenderingMethod, Converter={StaticResource StringToVisibilityConverter}, ConverterParameter=Softverski (Canvas)}">
+                </Canvas>
 
-                    <oxy:PlotView Model="{Binding OxyPlotModel}"
-                              Visibility="{Binding SelectedRenderingMethod, Converter={StaticResource StringToVisibilityConverter}, ConverterParameter=Hardverski (OxyPlot)}"/>
+                <oxy:PlotView Model="{Binding OxyPlotModel}"
+                      Visibility="{Binding SelectedRenderingMethod, Converter={StaticResource StringToVisibilityConverter}, ConverterParameter=Hardverski (OxyPlot)}"/>
 
             </Grid>
         </Border>

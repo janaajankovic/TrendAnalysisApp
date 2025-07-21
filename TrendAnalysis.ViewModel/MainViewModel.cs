@@ -11,7 +11,6 @@ namespace TrendAnalysis.ViewModel
     {
         private readonly ITrendDataService _client;
         private ObservableCollection<TrendDataPoint> _currentTrendData;
-
         private DateTime? _startDate;
         private DateTime? _endDate;
         private string _statusMessage;
@@ -19,7 +18,6 @@ namespace TrendAnalysis.ViewModel
         private string _selectedRenderMode;
         private ObservableCollection<string> _renderModes;
         private string _chartTitle;
-
         private int _loadingProgress;
         public int LoadingProgress
         {
@@ -108,14 +106,7 @@ namespace TrendAnalysis.ViewModel
         public ObservableCollection<TrendDataPoint> CurrentTrendData
         {
             get => _currentTrendData;
-            set
-            {
-                if (_currentTrendData != value)
-                {
-                    _currentTrendData = value;
-                    OnPropertyChanged(nameof(CurrentTrendData));
-                }
-            }
+            set => SetProperty(ref _currentTrendData, value);
         }
 
         private bool _dataLoadedAndReadyForRender;
@@ -212,10 +203,8 @@ namespace TrendAnalysis.ViewModel
 
                 if (data != null && data.Any())
                 {
-                    foreach (var point in data)
-                    {
-                        CurrentTrendData.Add(point);
-                    }
+                    CurrentTrendData = new ObservableCollection<TrendDataPoint>(data);
+
                     LoadingProgress = 100;
 
                     StatusMessage = $"Loaded {data.Count} records. Rendering chart...";
@@ -237,6 +226,8 @@ namespace TrendAnalysis.ViewModel
                     LoadingProgress = 100;
                     OxyPlotModel.Series.Clear();
                     OxyPlotModel.InvalidatePlot(true);
+
+                    CurrentTrendData = new ObservableCollection<TrendDataPoint>();
                 }
             }
             catch (Exception ex)
@@ -248,6 +239,7 @@ namespace TrendAnalysis.ViewModel
                 LoadingProgress = 0;
                 OxyPlotModel.Series.Clear();
                 OxyPlotModel.InvalidatePlot(true);
+                CurrentTrendData = new ObservableCollection<TrendDataPoint>();
             }
             finally
             {
