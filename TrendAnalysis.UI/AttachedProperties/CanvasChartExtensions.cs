@@ -5,6 +5,10 @@ using System.Windows.Media;
 using System.Windows.Shapes;
 using TrendAnalysis.Contracts;
 using System.Diagnostics;
+using Point = System.Windows.Point;
+using Brushes = System.Windows.Media.Brushes;
+using Rectangle = System.Windows.Shapes.Rectangle;
+using Size = System.Windows.Size;
 
 namespace TrendAnalysis.UI.AttachedProperties
 {

@@ -61,7 +61,7 @@ namespace TrendAnalysis.UI
                 _viewModel.PerformanceMeasurements.Add(new RenderMeasurement
                 {
                     Timestamp = DateTime.Now,
-                    RenderingMethod = "Hardverski (DrawingVisual)",
+                    RenderingMethod = "Hardware (DrawingVisual)",
                     ChartType = _viewModel.SelectedRenderMode, 
                     NumberOfPoints = _viewModel.CurrentTrendData?.Count ?? 0,
                     RenderDurationMs = e.TotalMilliseconds

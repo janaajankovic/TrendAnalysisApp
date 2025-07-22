@@ -3,6 +3,10 @@ using System.Windows;
 using System.Windows.Media;
 using TrendAnalysis.Contracts;
 using System.Diagnostics;
+using Brushes = System.Windows.Media.Brushes;
+using Pen = System.Windows.Media.Pen;
+using Point = System.Windows.Point;
+using Brush = System.Windows.Media.Brush;
 
 
 namespace TrendAnalysis.UI.Controls 
@@ -168,7 +172,7 @@ namespace TrendAnalysis.UI.Controls
                 FormattedText yLabelText = new FormattedText(
                     yValue.ToString("F1"),
                     System.Globalization.CultureInfo.CurrentCulture,
-                    FlowDirection.LeftToRight,
+                    System.Windows.FlowDirection.LeftToRight,
                     labelTypeface,
                     fontSize,
                     Brushes.Black,
@@ -191,7 +195,7 @@ namespace TrendAnalysis.UI.Controls
                 FormattedText xLabelText = new FormattedText(
                     xDateTime.ToString("dd.MM.yyyy\nHH:mm"),
                     System.Globalization.CultureInfo.CurrentCulture,
-                    FlowDirection.LeftToRight,
+                    System.Windows.FlowDirection.LeftToRight,
                     labelTypeface,
                     fontSize,
                     Brushes.Black,

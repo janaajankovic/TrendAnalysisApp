@@ -4,12 +4,13 @@ using TrendAnalysis.Contracts;
 using OxyPlot;
 using OxyPlot.Series;
 using OxyPlot.Axes;
-
+using System.IO;
 namespace TrendAnalysis.ViewModel
 {
     public class MainViewModel : BaseViewModel
     {
         private readonly ITrendDataService _client;
+        private readonly IFileService _fileService;
         private ObservableCollection<TrendDataPoint> _currentTrendData;
         private DateTime? _startDate;
         private DateTime? _endDate;
@@ -19,6 +20,7 @@ namespace TrendAnalysis.ViewModel
         private ObservableCollection<string> _renderModes;
         private string _chartTitle;
         private int _loadingProgress;
+        public RelayCommand ExportMeasurementsCommand { get; private set; }
         public int LoadingProgress
         {
             get => _loadingProgress;
@@ -56,8 +58,11 @@ namespace TrendAnalysis.ViewModel
                 {
                     if (CurrentTrendData != null && CurrentTrendData.Any())
                     {
+                        StatusMessage = "";
+                        DataLoadedAndReadyForRender = true;
                         RenderChartBasedOnMethod();
                     }
+
                     else
                     {
                         StatusMessage = $"Selected rendering method: {value}. Please load data first.";
@@ -93,9 +98,10 @@ namespace TrendAnalysis.ViewModel
             set => SetProperty(ref _performanceMeasurements, value);
         }
 
-        public MainViewModel(ITrendDataService client)
+        public MainViewModel(ITrendDataService client, IFileService fileService)
         {
             _client = client;
+            _fileService = fileService;
             _currentTrendData = new ObservableCollection<TrendDataPoint>();
             _endDate = DateTime.Today;
             _startDate = DateTime.Today.AddMonths(-1);
@@ -107,13 +113,20 @@ namespace TrendAnalysis.ViewModel
             RenderModes = new ObservableCollection<string> { "Line Chart", "Bar Chart" };
             SelectedRenderMode = "Line Chart";
 
-            RenderingMethods = new ObservableCollection<string> { "Softverski (Canvas)", "Hardverski (OxyPlot)", "Hardverski (DrawingVisual)" };
-            SelectedRenderingMethod = "Softverski (Canvas)";
+            RenderingMethods = new ObservableCollection<string> { "Software (Canvas)", "Hardware (OxyPlot)", "Hardware (DrawingVisual)" };
+            SelectedRenderingMethod = "Software (Canvas)";
 
             StatusMessage = "Welcome to Trend Analysis App!";
+            LoadDataCommand = new RelayCommand(async () => await LoadData(), () => CanLoadData());
+            LoadDataCommand.RaiseCanExecuteChanged();
+            ExportMeasurementsCommand = new RelayCommand(ExportMeasurements, () => CanExportMeasurements());
 
             OxyPlotModel = new PlotModel { Title = ChartTitle };
+          
             _performanceMeasurements = new ObservableCollection<RenderMeasurement>();
+            _performanceMeasurements.CollectionChanged += (s, e) => ExportMeasurementsCommand?.RaiseCanExecuteChanged();
+
+
             TrendDataPoint.CanvasChartRenderCompleted += (s, e) =>
             {
                 ChartRenderDuration = e;
@@ -121,7 +134,7 @@ namespace TrendAnalysis.ViewModel
                 PerformanceMeasurements.Add(new RenderMeasurement
                 {
                     Timestamp = DateTime.Now,
-                    RenderingMethod = "Softverski (Canvas)",
+                    RenderingMethod = "Software (Canvas)",
                     ChartType = SelectedRenderMode, 
                     NumberOfPoints = CurrentTrendData?.Count ?? 0,
                     RenderDurationMs = e.TotalMilliseconds
@@ -153,14 +166,30 @@ namespace TrendAnalysis.ViewModel
 
         public DateTime? StartDate
         {
-            get => _startDate;
-            set => SetProperty(ref _startDate, value);
+            get { return _startDate; }
+            set
+            {
+                if (_startDate != value)
+                {
+                    _startDate = value;
+                    OnPropertyChanged(nameof(StartDate));
+                    ResetChartData();
+                }
+            }
         }
 
         public DateTime? EndDate
         {
-            get => _endDate;
-            set => SetProperty(ref _endDate, value);
+            get { return _endDate; }
+            set
+            {
+                if (_endDate != value)
+                {
+                    _endDate = value;
+                    OnPropertyChanged(nameof(EndDate));
+                    ResetChartData();
+                }
+            }
         }
 
         public string StatusMessage
@@ -182,18 +211,35 @@ namespace TrendAnalysis.ViewModel
             {
                 if (SetProperty(ref _selectedRenderMode, value))
                 {
-                    if (SelectedRenderingMethod == "Softverski (Canvas)")
+                    if (SelectedRenderingMethod == "Software (Canvas)")
                     {
-                        DataReadyForChartRender?.Invoke();
-                    }
+                        StatusMessage = "";
+                        DataLoadedAndReadyForRender = true;
+                        RenderChartBasedOnMethod();
+                    }
 
-                    if (SelectedRenderingMethod == "Hardverski (OxyPlot)")
+                    if (SelectedRenderingMethod == "Hardware (OxyPlot)")
                     {
-                        RenderChartWithOxyPlot();
+                        RenderChartWithOxyPlot();
                     }
                 }
             }
 
+        }
+
+        private void ResetChartData()
+        {
+            if (CurrentTrendData != null && CurrentTrendData.Any())
+            {
+                CurrentTrendData = new ObservableCollection<TrendDataPoint>();
+            }
+            OxyPlotModel.Series.Clear();
+            OxyPlotModel.Axes.Clear();
+            OxyPlotModel.InvalidatePlot(true);
+            OxyPlotModel = null; 
+            OnPropertyChanged(nameof(OxyPlotModel));
+
+            StatusMessage = $"Selected rendering method: {SelectedRenderingMethod}. Please load data first.";
         }
 
         public ObservableCollection<string> RenderModes
@@ -225,7 +271,7 @@ namespace TrendAnalysis.ViewModel
             StatusMessage = "Loading data...";
             LoadingProgress = 0;
             CurrentTrendData.Clear();
-            if (SelectedRenderingMethod == "Hardverski (DrawingVisual)")
+            if (SelectedRenderingMethod == "Hardware (DrawingVisual)")
             {
                 RenderTrigger = DateTime.Now;
             }
@@ -239,7 +285,6 @@ namespace TrendAnalysis.ViewModel
                 if (data != null && data.Any())
                 {
                     CurrentTrendData = new ObservableCollection<TrendDataPoint>(data);
-
                     LoadingProgress = 100;
                     RenderChartBasedOnMethod();
                     DataLoadedAndReadyForRender = true;
@@ -268,6 +313,7 @@ namespace TrendAnalysis.ViewModel
             {
                 IsLoading = false;
                 IsIndeterminateProgress = false;
+                ExportMeasurementsCommand?.RaiseCanExecuteChanged();
                 LoadDataCommand.RaiseCanExecuteChanged();
             }
         }
@@ -289,13 +335,13 @@ namespace TrendAnalysis.ViewModel
 
             switch (SelectedRenderingMethod)
             {
-                case "Softverski (Canvas)":
-                    DataReadyForChartRender?.Invoke();
+                case "Software (Canvas)":
+                    CurrentTrendData = new ObservableCollection<TrendDataPoint>(CurrentTrendData);
                     break;
-                case "Hardverski (OxyPlot)":
+                case "Hardware (OxyPlot)":
                     RenderChartWithOxyPlot();
                     break;
-                case "Hardverski (DrawingVisual)":
+                case "Hardware (DrawingVisual)":
                     RenderTrigger = DateTime.Now; 
                     System.Diagnostics.Debug.WriteLine("DrawingVisual render triggered from RenderChartBasedOnMethod.");
                     break;
@@ -440,14 +486,53 @@ namespace TrendAnalysis.ViewModel
             PerformanceMeasurements.Add(new RenderMeasurement
             {
                 Timestamp = DateTime.Now,
-                RenderingMethod = "Hardverski (OxyPlot)",
+                RenderingMethod = "Hardware (OxyPlot)",
                 ChartType = SelectedRenderMode,
                 NumberOfPoints = CurrentTrendData?.Count ?? 0,
                 RenderDurationMs = stopwatch.Elapsed.TotalMilliseconds
             });
 
             StatusMessage = $"Loaded {CurrentTrendData.Count} records. Chart rendered in {ChartRenderDuration.TotalMilliseconds:F2} ms.";
+        }
 
+        private void ExportMeasurements()
+        {
+            string defaultFileName = $"PerformanceMeasurements_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+            string filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*";
+
+            string filePath = _fileService.SaveFile(defaultFileName, filter);
+
+            if (!string.IsNullOrEmpty(filePath))
+            {
+                try
+                {
+                    using (StreamWriter writer = new StreamWriter(filePath))
+                    {
+                        writer.WriteLine("Timestamp,RenderingMethod,ChartType,NumberOfPoints,RenderDurationMs");
+
+                        foreach (var measurement in PerformanceMeasurements)
+                        {
+                            writer.WriteLine($"{measurement.Timestamp:yyyy-MM-dd HH:mm:ss},{measurement.RenderingMethod},{measurement.ChartType},{measurement.NumberOfPoints},{measurement.RenderDurationMs:F2}");
+                        }
+                    }
+                    StatusMessage = $"Successfully exported to: {filePath}";
+                    System.Diagnostics.Debug.WriteLine($"Export successful: {filePath}");
+                }
+                catch (Exception ex)
+                {
+                    StatusMessage = $"Greška prilikom izvoza merenja: {ex.Message}";
+                    System.Diagnostics.Debug.WriteLine($"Export error: {ex.Message}");
+                }
+            }
+            else
+            {
+                StatusMessage = "Izvoz merenja otkazan.";
+            }
+        }
+
+        private bool CanExportMeasurements()
+        {
+            return PerformanceMeasurements != null && PerformanceMeasurements.Any();
         }
     }
 
