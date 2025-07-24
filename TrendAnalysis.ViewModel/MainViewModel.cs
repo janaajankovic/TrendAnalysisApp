@@ -117,7 +117,6 @@ namespace TrendAnalysis.ViewModel
             SelectedRenderingMethod = "Software (Canvas)";
 
             StatusMessage = "Welcome to Trend Analysis App!";
-            LoadDataCommand = new RelayCommand(async () => await LoadData(), () => CanLoadData());
             LoadDataCommand.RaiseCanExecuteChanged();
             ExportMeasurementsCommand = new RelayCommand(ExportMeasurements, () => CanExportMeasurements());
 
@@ -211,17 +210,15 @@ namespace TrendAnalysis.ViewModel
             {
                 if (SetProperty(ref _selectedRenderMode, value))
                 {
-                    if (SelectedRenderingMethod == "Software (Canvas)")
+
+                    if (CurrentTrendData != null && CurrentTrendData.Any()) 
                     {
-                        StatusMessage = "";
-                        DataLoadedAndReadyForRender = true;
                         RenderChartBasedOnMethod();
                     }
-
-                    if (SelectedRenderingMethod == "Hardware (OxyPlot)")
+                    else
                     {
-                        RenderChartWithOxyPlot();
-                    }
+                        StatusMessage = $"Selected chart type: {value}. Please load data first.";
+                    }
                 }
             }
 
@@ -335,9 +332,6 @@ namespace TrendAnalysis.ViewModel
 
             switch (SelectedRenderingMethod)
             {
-                case "Software (Canvas)":
-                    CurrentTrendData = new ObservableCollection<TrendDataPoint>(CurrentTrendData);
-                    break;
                 case "Hardware (OxyPlot)":
                     RenderChartWithOxyPlot();
                     break;
