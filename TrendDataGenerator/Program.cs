@@ -79,7 +79,7 @@ namespace TrendDataGenerator
 
                 stopwatch.Stop();
                 Console.WriteLine($"\nUbacivanje svih {NumberOfRecordsToGenerate:N0} redova zavrseno!");
-                Console.WriteLine($"Ukupno vreme: {stopwatch.Elapsed.TotalSeconds:F2} sekundi ({stopwatch.Elapsed.TotalMinutes:F2} minuta)");
+                Console.WriteLine($"Ukupno vrijeme: {stopwatch.Elapsed.TotalSeconds:F2} sekundi ({stopwatch.Elapsed.TotalMinutes:F2} minuta)");
             }
             catch (Exception ex)
             {
